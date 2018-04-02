@@ -119,7 +119,7 @@ void motorControl(float u[], int direction)
 }
 
 
-void getTargetPoint(float& dist, float& angle) {
+void getTargetPoint(float& d, float& alpha) {
   int maxSensorDistance = 50;
   
   //read all sensor values
@@ -146,8 +146,8 @@ void getTargetPoint(float& dist, float& angle) {
   //here we will maybe need to do something with the side sensors to try and stabilize the car trajectory to the center of the track
   //when we have no obstacles.
   if (sensorValue[2] == maxSensorDistance) {
-    dist = maxSensorDistance;
-    angle = sensorAngle[2];
+    d = maxSensorDistance;
+    alpha = sensorAngle[2];
   } else { 
     int maxIndex = 0;
     int maxVal = sensorValue[maxIndex];
@@ -157,8 +157,8 @@ void getTargetPoint(float& dist, float& angle) {
         maxIndex = i;
       }
     }
-  dist = maxVal;
-  angle = sensorAngle[maxIndex];   
+  d = maxVal;
+  alpha = sensorAngle[maxIndex];   
   }
 
 }
