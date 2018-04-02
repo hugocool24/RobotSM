@@ -9,7 +9,7 @@ float L = 0.3; //car length
 float vmax = 5; //car max velocity
 float deltamax = 30; //max steering angle [deg]
 float kappa;
-float u[] = {0,90};
+float u[] = {0.0,90.0};
 
 /*servo defines*/
 #include <Servo.h>
@@ -28,9 +28,9 @@ int dc;
 const int nrOfFrontSensors = 1; //nr of sensors to use in the controller ADJUST AS FOR HOW MANY SENSORS CURRENTLY CONNECTED
 int sensorPin[] = {A0}; //array of input pins ADJUST FOR CURRENTLY CONNECTED SENSORS
 int rawData[nrOfFrontSensors]; //array to store value coming from sensor
-float sensorAngle[] = {45.0,22.5,0.0,22.5,45.0}; //MAKE SURE THE CONNECTED PIN INDEX MATCHES SENSOR ANGLES DEFINED HERE
-float sensorValue[nrOfFrontSensors];  //array to store shifted and inverted value for sensor
-float offsetValue[nrOfFrontSensors]; //array to store offset value for each sensor
+int sensorAngle[] = {45,22,0.0,22,45}; //MAKE SURE THE CONNECTED PIN INDEX MATCHES SENSOR ANGLES DEFINED HERE. Angles must be Integers
+int sensorValue[nrOfFrontSensors];  //array to store shifted and inverted value for sensor
+int offsetValue[nrOfFrontSensors]; //array to store offset value for each sensor
 
 /*filter defines*/
 float smoothedVal1;
@@ -77,8 +77,9 @@ void controller(float u[], float d, float alpha) {
   /* end of pure pursuit controller */
 }
 
-int servoControl(int reqAngle, int currAngle) {
-  
+int servoControl(float u[], int currAngle) {
+    
+    reqAngle = (int) round(u[1]); //convert req. angle to integer after rounding
     if(reqAngle > currAngle) 
     {
       for (pos = currAngle; pos <= reqAngle; pos += 1) { 
@@ -98,7 +99,7 @@ int servoControl(int reqAngle, int currAngle) {
     return currAngle;
 }
 
-void motorControl(int dCycle, int direction)
+void motorControl(float u[], int direction)
 {
   //set direction
   if (direction == 1) {
@@ -109,8 +110,9 @@ void motorControl(int dCycle, int direction)
     digitalWrite(dir_pin, HIGH);
   }
 
-  //restrict duty cycle, lowest PWM to get the motor rolling is approx. 150. Max duty cycle is 255. Currently restricted to 200
-  dCycle = map(dCycle,0,1,150,200);
+  //construct duty cycle, lowest PWM to get the motor rolling is approx. 150. Max duty cycle is 255. Currently restricted to 200
+  int dCycle = (int) round(u[0]*255.0);
+  dCycle = map(dCycle,0,255,150,200);
   
   //send duty cycle
   analogWrite(pwm_pin, dCycle);  
@@ -119,13 +121,10 @@ void motorControl(int dCycle, int direction)
 
 void getTargetPoint(float& dist, float& angle) {
   int maxSensorDistance = 50;
+  
   //read all sensor values
   for (int i = 0; i < nrOfFrontSensors; pos += 1) { 
     rawData[i] = analogRead(sensorPin[i]);
-    //cap data at maxSensorDistance cm MIGHT NEED TO TWEAK
-    if(rawData[i] > maxSensorDistance) {
-      rawData[i] = maxSensorDistance;
-    }
   }
 
   //smooth data, try first without filtering the data
@@ -133,7 +132,11 @@ void getTargetPoint(float& dist, float& angle) {
 
   //invert and shift sensor data
   for (int i = 0; i < nrOfFrontSensors; pos += 1) { 
-  sensorValue[i] = 1000*(1.0/rawData[i]) + offsetValue[i];  
+    //sensorValue[i] = 1023*(1.0/rawData[i]) + offsetValue[i];
+    sensorValue[i] = map(sensorValue[i],1023,0,0,maxSensorDistance);  
+    if(sensorValue[i] > maxSensorDistance) {
+      sensorValue[i] = maxSensorDistance;  
+    }
   }
 
   //Serial.print(sensorValue[0]);
@@ -179,7 +182,7 @@ int smooth(int data, float filterVal, float smoothedVal){
 void sensorTest() {
   // read the value from the sensor:
   int sensorIn = analogRead(sensorPin[0]);
-  float value = 1000*(1.0/sensorIn);
+  float value = 1023*(1.0/sensorIn);
   Serial.print(value);
   Serial.println();
 }
@@ -187,8 +190,8 @@ void sensorTest() {
 void loop() {
   getTargetPoint(d,alpha);
   controller(u,d,alpha);
-  motorControl(&u[0],1);
-  currAngle = servoControl(&u[1],currAngle);
+  motorControl(u,1);
+  currAngle = servoControl(u,currAngle);
+  delay(100); //this is to be tweaked
   /*sensorTest();*/
-
 }
