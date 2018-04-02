@@ -83,7 +83,7 @@ int servoControl(int reqAngle, int currAngle) {
     {
       for (pos = currAngle; pos <= reqAngle; pos += 1) { 
       myservo.write(pos);              
-      delay(5);
+      delay(5); //THESE DELAYS CAN PROBABLY BE LOWERED TO GET FASTER STEERING
       }
     } else if(reqAngle < currAngle) {
       for (pos = currAngle; pos >= reqAngle; pos -= 1) { 
@@ -109,8 +109,11 @@ void motorControl(int dCycle, int direction)
     digitalWrite(dir_pin, HIGH);
   }
 
-  //send duty cycle !!multiplied by 0.3 because its so fast!!
-  analogWrite(pwm_pin, dCycle*0.3);  
+  //restrict duty cycle, lowest PWM to get the motor rolling is approx. 150. Max duty cycle is 255. Currently restricted to 200
+  dCycle = map(dCycle,0,1,150,200);
+  
+  //send duty cycle
+  analogWrite(pwm_pin, dCycle);  
 }
 
 
@@ -137,6 +140,8 @@ void getTargetPoint(float& dist, float& angle) {
   //Serial.println();
 
   //pick target point (if sensor with angle 0 has max distance, go straight else check for which sensor has max distance)
+  //here we will maybe need to do something with the side sensors to try and stabilize the car trajectory to the center of the track
+  //when we have no obstacles.
   if (sensorValue[2] == maxSensorDistance) {
     dist = maxSensorDistance;
     angle = sensorAngle[2];
