@@ -36,7 +36,9 @@ float sensorValue[nrOfFrontSensors] = {0,0,0};  //array to store shifted and inv
 float offsetValue[nrOfFrontSensors] = {0,0,0}; //array to store offset value for each sensor
 
 /*filter defines*/
-float smoothedVal1;
+float beta;
+float y;
+float x;
 
 
 
@@ -153,18 +155,21 @@ void getTargetPoint(float& d, float& alpha) {
     rawData[i] = analogRead(sensorPin[i])/200.0;
    }
  
-  //smooth data, try first without filtering the data
-  //smoothedVal1 =  smooth(rawData1, 0.9, smoothedVal1); 
-
+    //filter data
+  for (int i = 0; i < nrOfFrontSensors; i += 1) {
+      sensorValue[i] = LPF(rawData[i], sensorValue[i], 0.5);
+    }
+  
   for (int i = 0; i < nrOfFrontSensors; i += 1) { 
     if (rawData[i]>1) {
       sensorValue[i] = (3.5-rawData[i])*13;
     } else {
       sensorValue[i] = (1.3-rawData[i])/0.01;
     }
-
+    
+    //if distance is over maxSensorDistance we cannot trust the sensor reading so set it to minimum hoping other sensor will be chosen
     if(sensorValue[i] > maxSensorDistance) {
-      sensorValue[i] = maxSensorDistance;  
+      sensorValue[i] = minSensorDistance;  
     }
        
     if(sensorValue[i] < minSensorDistance) {
@@ -194,19 +199,11 @@ void getTargetPoint(float& d, float& alpha) {
   }
 }
 
-//smoothing filter
-int smooth(int data, float filterVal, float smoothedVal){
-
-  if (filterVal > 1){      // check to make sure param's are within range
-   filterVal = .99;
- }
- else if (filterVal <= 0){
-   filterVal = 0;
- }
-
- smoothedVal = (data * (1 - filterVal)) + (smoothedVal  *  filterVal);
-
- return (int)smoothedVal;
+//1st order low pass filter:
+//LPF: Y(n) = (1-beta)*Y(n-1) + beta*X(n)
+int LPF(float x, float yprev, float beta){
+  y = (1-beta)*yprev + beta*x;
+  return y;
 }
 
 //use this to test each sensor, check serial monitor for sensor value
@@ -257,8 +254,6 @@ void sensorTest() {
   
   Serial.print(value3);
   Serial.println();
-
-
 }
 
 
@@ -266,9 +261,8 @@ void sensorTest() {
 void loop() {
   getTargetPoint(d,alpha);
   controller(u,d,alpha,L);
-  Serial.println(u[1]);
   motorControl(u,2);
   currAngle = servoControl(u,currAngle);
-  delay(100); //this is to be tweaked
+  delay(50);
   //sensorTest();
 }
