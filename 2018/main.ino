@@ -20,6 +20,7 @@ int reqAngle;
 int currAngle = 90;
 int val;
 int pos;
+float holder;
 
 /*motor defines*/
 int pwm_pin = 3;  //PWM control for motor outputs 1 and 2 
@@ -30,13 +31,15 @@ int dc;
 const int nrOfFrontSensors = 3; //nr of sensors to use in the controller ADJUST AS FOR HOW MANY SENSORS CURRENTLY CONNECTED
 int sensorPin[] = {2,7,8}; //array of input pins ADJUST FOR CURRENTLY CONNECTED SENSORS
 float rawData[nrOfFrontSensors]; //array to store value coming from sensor
-int sensorAngle[] = {0,45,-45}; //MAKE SURE THE CONNECTED PIN INDEX MATCHES SENSOR ANGLES DEFINED HERE. Angles must be Integers
+int sensorAngle[] = {0,-45,45}; //MAKE SURE THE CONNECTED PIN INDEX MATCHES SENSOR ANGLES DEFINED HERE. Angles must be Integers
 const int midSensorIndex = 0;
 float sensorValue[nrOfFrontSensors] = {0,0,0};  //array to store shifted and inverted value for sensor
 float offsetValue[nrOfFrontSensors] = {0,0,0}; //array to store offset value for each sensor
 float sensorValuePrev[nrOfFrontSensors] = {0,0,0}; 
-const  int maxSensorDistance = 80; 
-const  int minSensorDistance = 10;
+const float maxSensorVoltage = 3.0; 
+const float minSensorVoltage = 0.4;
+const float maxSensorDistance = 70.0;
+const float minSensorDistance = 10.0;
 
 /*1st LP filter defines*/
 float beta;
@@ -49,9 +52,9 @@ float alphaFltrd = 0;
 /*moving average filter defines*/
 const int numReadings = 30;
 float readings[nrOfFrontSensors][numReadings];      // the readings from the analog input
-int readIndex = 0;              // the index of the current reading
-float total[nrOfFrontSensors] = {0,0,0};                  // the running total
-float avgSensorValue[nrOfFrontSensors] = {0,0,0};                // the average
+int readIndex[nrOfFrontSensors] = {0,0,0};              // the index of the current reading
+float total[nrOfFrontSensors] = {0.0,0.0,0.0};                  // the running total
+float avgSensorValue[nrOfFrontSensors] = {0.0,0.0,0.0};                // the average
 
 
 /*general*/
@@ -101,16 +104,14 @@ void controller(float u[], float d, float alpha, float L) {
   
   if (u[1] > deltamax) {
     u[1] = deltamax;
-  }
-
-  if (u[1] < -deltamax) {
+  } else if (u[1] < -deltamax) {
     u[1] = -deltamax;
   }
 
   
-  u[1] = map(u[1],-deltamax,deltamax,180-15,15);
+  u[1] = map(u[1],-deltamax,deltamax,15,180-15);
 
- // Serial.println(u[1]);
+ //Serial.println(u[1]);
   //Serial.println(u[1]);
   /* motor control signal (very simplistic function of steering angle) */
   
@@ -124,14 +125,17 @@ void controller(float u[], float d, float alpha, float L) {
   
 }
 
-int servoControl(float u[], int currAngle) {
+int servoControl(float u[], int& currAngle) {
+
    
-    reqAngle = (int) round(u[1]); //convert req. angle to integer after rounding
+    reqAngle = (int) u[1]; //convert req. angle to integer
+    
     if(reqAngle > currAngle) 
     {
       for (pos = currAngle; pos <= reqAngle; pos += 1) { 
       myservo.write(pos);              
       delay(5); //THESE DELAYS CAN PROBABLY BE LOWERED TO GET FASTER STEERING
+      
       }
     } else if(reqAngle < currAngle) {
       for (pos = currAngle; pos >= reqAngle; pos -= 1) { 
@@ -141,10 +145,9 @@ int servoControl(float u[], int currAngle) {
     } else {
       myservo.write(reqAngle);
     }
-
     
     currAngle = reqAngle;
-    return currAngle;
+    return currAngle;    
 }
 
 void motorControl(float u[], int direction)
@@ -160,7 +163,7 @@ void motorControl(float u[], int direction)
 
   //construct duty cycle, lowest PWM to get the motor rolling is approx. 150. Max duty cycle is 255. Currently restricted to 200
   int dCycle = (int) round(u[0]*255.0);
-  dCycle = map(dCycle,0,255,100,100);
+  dCycle = map(dCycle,0,255,150,150);
   
   //send duty cycle
   analogWrite(pwm_pin, dCycle);  
@@ -173,16 +176,20 @@ void getTargetPoint(float& d, float& alpha, float sensorValue[]) {
   //here we will maybe need to do something with the side sensors to try and stabilize the car trajectory to the center of the track
   //when we have no obstacles.
 
+   
+    
+
   float delta = 10.0;
-  if (sensorValue[midSensorIndex] == maxSensorDistance) {
+  float epsilon = 10;
+  if ((sensorValue[midSensorIndex] < maxSensorDistance + epsilon) && (sensorValue[midSensorIndex] > maxSensorDistance - epsilon)) {
     d = maxSensorDistance;
     alpha = sensorAngle[midSensorIndex];
 
   } else { 
     int maxIndex = 0;
-    int maxVal = sensorValue[maxIndex];
+    float maxVal = sensorValue[maxIndex];
     for (int i = 0; i < nrOfFrontSensors; i += 1) { 
-      if ((maxVal + delta) <sensorValue[i]){
+      if ((maxVal + delta) < sensorValue[i]){
         maxVal = sensorValue[i];
         maxIndex = i;
       }
@@ -199,7 +206,7 @@ float LPF(float x, float yprev, float beta){
   return y;
 }
 
-void getSensorValues(float avgSensorValue[], int &readIndex, float total[], float readings[nrOfFrontSensors][numReadings], const int numReadings) {
+void getSensorValues(float avgSensorValue[], int readIndex[], float total[], float readings[nrOfFrontSensors][numReadings], const int numReadings) {
 
 
   //read all sensor values
@@ -208,7 +215,16 @@ void getSensorValues(float avgSensorValue[], int &readIndex, float total[], floa
   }
   
   for (int i = 0; i < nrOfFrontSensors; i += 1) { 
-    if (rawData[i]>1.5) {
+
+    if(rawData[i] > maxSensorVoltage) {
+      rawData[i] = minSensorDistance;  
+    }
+       
+    else if(rawData[i] < minSensorVoltage) {
+      rawData[i] = maxSensorDistance;  
+    }
+    
+    else if (rawData[i]>1.5) {
       sensorValue[i] = (rawData[i]-4.2)/(-0.156);
     } else if (rawData[i]>1.0) {
       sensorValue[i] = (rawData[i]-2.1)/(-0.033);
@@ -216,36 +232,29 @@ void getSensorValues(float avgSensorValue[], int &readIndex, float total[], floa
       sensorValue[i] = (rawData[i]-1.4)/(-0.011);
     }
   
-    if(sensorValue[i] > maxSensorDistance) {
-      sensorValue[i] = maxSensorDistance;  
-    }
-       
-    if(sensorValue[i] < minSensorDistance) {
-      sensorValue[i] = minSensorDistance;  
-    }
   }
 
   //moving average filter
   for (int i = 0; i < nrOfFrontSensors; i += 1) {
     
-    total[i] = total[i] - readings[i][readIndex];
+    total[i] = total[i] - readings[i][readIndex[i]];
     // read from the sensor:
-    readings[i][readIndex] = sensorValue[i];
+    readings[i][readIndex[i]] = sensorValue[i];
     // add the reading to the total:
-    total[i] = total[i] + readings[i][readIndex];
+    total[i] = total[i] + readings[i][readIndex[i]];
 
     // calculate the average:
     avgSensorValue[i] = total[i] / numReadings;
-  }
 
     // advance to the next position in the array:
-    readIndex = readIndex + 1;
+    readIndex[i] = readIndex[i] + 1;
     
     // if we're at the end of the array...
-    if (readIndex >= numReadings) {
+    if (readIndex[i] >= numReadings) {
       // ...wrap around to the beginning:
-      readIndex = 0;
+      readIndex[i] = 0;
     }
+  }
 }
 
 
@@ -310,19 +319,26 @@ void loop() {
   counter += 1;
   
   if (counter == numReadings) {
-    Serial.println("center");
-    Serial.println(sensorValue[0]);
-    Serial.println("right");
-    Serial.println(sensorValue[1]);
-    Serial.println("left");
-    Serial.println(sensorValue[2]);
+    //Serial.println("center");
+    //Serial.println(avgSensorValue[0]);
+    //Serial.println("right");
+    //Serial.println(avgSensorValue[1]);
+    //Serial.println("left");
+    //Serial.println(avgSensorValue[2]);
     getTargetPoint(d,alpha,avgSensorValue);
+    //Serial.println("d");
+    //Serial.println(d);
+    //Serial.println("alpha");
+    //Serial.println(alpha);
     //dFltrd = LPF(d, dFltrd, 0.1);
     //alphaFltrd = LPF(alpha, alphaFltrd, 0.1);
     controller(u,d,alpha,L);
     motorControl(u,2);
-    currAngle = servoControl(u,currAngle);
+
+    servoControl(u,currAngle);
     counter = 0;
+    
+    //Serial.println(holder);
   }
   //sensorTest();
 }
