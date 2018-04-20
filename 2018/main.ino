@@ -34,8 +34,6 @@ float rawData[nrOfFrontSensors]; //array to store value coming from sensor
 const int sensorAngle[] = {0,-45,45}; //MAKE SURE THE CONNECTED PIN INDEX MATCHES SENSOR ANGLES DEFINED HERE. Angles must be Integers
 const int midSensorIndex = 0;
 float sensorValue[nrOfFrontSensors] = {0,0,0};  //array to store shifted and inverted value for sensor
-float offsetValue[nrOfFrontSensors] = {0,0,0}; //array to store offset value for each sensor
-float sensorValuePrev[nrOfFrontSensors] = {0,0,0}; 
 const float maxSensorVoltage = 3.0; 
 const float minSensorVoltage = 0.4;
 const float maxSensorDistance = 70.0;
@@ -180,7 +178,7 @@ void getTargetPoint(float& d, float& alpha, float sensorValue[]) {
     
 
   float delta = 10.0;
-  float epsilon = 10;
+  float epsilon = 10.0;
   if ((sensorValue[midSensorIndex] < maxSensorDistance + epsilon) && (sensorValue[midSensorIndex] > maxSensorDistance - epsilon)) {
     d = maxSensorDistance;
     alpha = sensorAngle[midSensorIndex];
