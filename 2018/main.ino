@@ -1,5 +1,8 @@
 /*Debug Commands*/
-debugServoControl = true;
+bool debugServoControl = false;
+bool debugLoop = true;
+bool debugController = false;
+bool debuggetTargetPoint = true;
 
 /*controller defines*/
 float xgv;
@@ -31,12 +34,12 @@ int dir_pin = 12;  //direction control for motor outputs 1 and 2
 int dc;
 
 /*sensor defines*/
-const int nrOfFrontSensors = 3; //nr of sensors to use in the controller ADJUST AS FOR HOW MANY SENSORS CURRENTLY CONNECTED
-const int sensorPin[] = {2,7,8}; //array of input pins ADJUST FOR CURRENTLY CONNECTED SENSORS
+const int nrOfFrontSensors = 5; //nr of sensors to use in the controller ADJUST AS FOR HOW MANY SENSORS CURRENTLY CONNECTED
+const int sensorPin[] = {2, 4, 3, 8,7};// {95,93,94,89,90}; //array of input pins ADJUST FOR CURRENTLY CONNECTED SENSORS
 float rawData[nrOfFrontSensors]; //array to store value coming from sensor
-const int sensorAngle[] = {0,-45,45}; //MAKE SURE THE CONNECTED PIN INDEX MATCHES SENSOR ANGLES DEFINED HERE. Angles must be Integers
+const int sensorAngle[] = {0,-23, 23 ,-45, 45}; //MAKE SURE THE CONNECTED PIN INDEX MATCHES SENSOR ANGLES DEFINED HERE. Angles must be Integers
 const int midSensorIndex = 0;
-float sensorValue[nrOfFrontSensors] = {0,0,0};  //array to store shifted and inverted value for sensor
+float sensorValue[nrOfFrontSensors] = {0,0,0,0,0};  //array to store shifted and inverted value for sensor
 const float maxSensorVoltage = 3.0; 
 const float minSensorVoltage = 0.4;
 const float maxSensorDistance = 70.0;
@@ -87,11 +90,15 @@ void setup() {
 }
 
 void controller(float u[], float d, float alpha, float L) {
-  
-
- // Serial.println(alpha);
-
-  
+    
+    // debug
+      if (debugController == true ){
+          Serial.println("-- ######## Controller #######");
+          Serial.println("-- u[1] from function input --");
+          Serial.println(u[1]);
+          Serial.println("-- alpha from function input --");
+          Serial.println(alpha);
+      }
   //convert to rad for sin(x) and atan(y) and change sign
   
   alpha = (alpha * Pi)/180.0;
@@ -99,19 +106,39 @@ void controller(float u[], float d, float alpha, float L) {
   /* compute steering control input */
   kappa = 2.0 * sin(alpha) / (d/100.0);
   u[1] = atan(kappa*L);
-
+  // debug
+      if (debugController == true ){
+          Serial.println("-- u[1] radians --");
+          Serial.println(u[1]);
+      }
+      
   //convert back to degrees
   u[1] = (u[1] * 180.0)/Pi;
   
+  // debug
+      if (debugController == true ){
+          Serial.println("-- u[1] after degree conversion --");
+          Serial.println(u[1]);
+      }
+      
   if (u[1] > deltamax) {
     u[1] = deltamax;
   } else if (u[1] < -deltamax) {
     u[1] = -deltamax;
   }
-
+  // debug
+      if (debugController == true ){
+          Serial.println("-- u[1] after deltamax --");
+          Serial.println(u[1]);
+      }
   
   u[1] = map(u[1],-deltamax,deltamax,15,180-15);
-
+  
+  // debug
+      if (debugController == true ){
+          Serial.println("-- u[1] after map --");
+          Serial.println(u[1]);
+      }
  //Serial.println(u[1]);
   //Serial.println(u[1]);
   /* motor control signal (very simplistic function of steering angle) */
@@ -130,8 +157,11 @@ int servoControl(float u[], int& currAngle) {
     
     // debug
     if (debugServoControl == true ){
+        Serial.println("####### servoControl #######");
         Serial.println("-- u[1] from function input --");
         Serial.println(u[1]);
+        Serial.println("-- currAngle from function input --");
+        Serial.println(currAngle);
     }
     
     reqAngle = (int) u[1]; //convert req. angle to integer
@@ -182,7 +212,21 @@ int servoControl(float u[], int& currAngle) {
       
     }
     
+    // debug
+    if (debugServoControl == true ){
+        Serial.println("-- currAngle after servoContol loop --");
+        Serial.println(currAngle);
+        Serial.println("-- reqAngle after servoContol loop --");
+        Serial.println(reqAngle);
+    }
+      
     currAngle = reqAngle;
+    
+    // debug
+    if (debugServoControl == true ){
+        Serial.println("-- currAngle before return --");
+        Serial.println(currAngle);
+    }
     return currAngle;    
 }
 
@@ -211,7 +255,15 @@ void getTargetPoint(float& d, float& alpha, float sensorValue[]) {
   //pick target point (if sensor with angle 0 has max distance, go straight else check for which sensor has max distance)
   //here we will maybe need to do something with the side sensors to try and stabilize the car trajectory to the center of the track
   //when we have no obstacles.
-
+  
+  // debug
+  if (debuggetTargetPoint == true ){
+    Serial.println("####### getTargetPoint #######");
+    Serial.println("-- alpha after function input --");
+    Serial.println(alpha);
+    Serial.println("-- sensorValue[maxindex] after function input --");
+    Serial.println(sensorValue[0]);
+  }
    
     
 
@@ -220,7 +272,12 @@ void getTargetPoint(float& d, float& alpha, float sensorValue[]) {
   if ((sensorValue[midSensorIndex] < maxSensorDistance + epsilon) && (sensorValue[midSensorIndex] > maxSensorDistance - epsilon)) {
     d = maxSensorDistance;
     alpha = sensorAngle[midSensorIndex];
-
+    // debug
+    if (debuggetTargetPoint == true ){
+      Serial.println("-- alpha in first condition --");
+      Serial.println(alpha);
+    }
+    
   } else { 
     int maxIndex = 0;
     float maxVal = sensorValue[maxIndex];
@@ -230,8 +287,15 @@ void getTargetPoint(float& d, float& alpha, float sensorValue[]) {
         maxIndex = i;
       }
     }
-  d = maxVal;
-  alpha = sensorAngle[maxIndex];   
+    
+    d = maxVal;
+    alpha = sensorAngle[maxIndex]; 
+    // debug
+    if (debuggetTargetPoint == true ){
+      Serial.println("-- alpha in second condition --");
+      Serial.println(alpha);
+    }
+    
   }
 }
 
@@ -354,24 +418,57 @@ void loop() {
   delay(1); //this will give the sensors time to stabilize a new value. also defines numReadings+calctime ms loop
   counter += 1;
   
+  // debug
+    if (debugLoop == true && counter == numReadings){
+        Serial.println("-- currAngle after getSensorValues --");
+        Serial.println(currAngle);
+    }
+  
   if (counter == numReadings) {
-    //Serial.println("center");
-    //Serial.println(avgSensorValue[0]);
-    //Serial.println("right");
-    //Serial.println(avgSensorValue[1]);
-    //Serial.println("left");
-    //Serial.println(avgSensorValue[2]);
+      // debug
+    if (debugLoop == true ){
+        Serial.println("-- counter == numReadings --");
+        Serial.println("-- currAngle before getTargetPoint --");
+        Serial.println(currAngle);
+        Serial.println("-- u[1] before getTargetPoint --");
+        Serial.println(u[1]);
+    }
     getTargetPoint(d,alpha,avgSensorValue);
-    //Serial.println("d");
-    //Serial.println(d);
-    //Serial.println("alpha");
-    //Serial.println(alpha);
-    //dFltrd = LPF(d, dFltrd, 0.1);
-    //alphaFltrd = LPF(alpha, alphaFltrd, 0.1);
+    
+    // debug
+    if (debugLoop == true ){
+        Serial.println("-- currAngle before controller --");
+        Serial.println(currAngle);
+        Serial.println("-- u[1] before controller --");
+        Serial.println(u[1]);
+    }
     controller(u,d,alpha,L);
+    
+    // debug
+    if (debugLoop == true ){
+        Serial.println("-- currAngle before motorControl --");
+        Serial.println(currAngle);
+        Serial.println("-- u[1] before motorControl --");
+        Serial.println(u[1]);
+    }
     motorControl(u,2);
-
+    
+    // debug
+    if (debugLoop == true ){
+        Serial.println("-- currAngle before servoControl --");
+        Serial.println(currAngle);
+        Serial.println("-- u[1] before servoControl --");
+        Serial.println(u[1]);
+    }
     servoControl(u,currAngle);
+    
+    // debug
+    if (debugLoop == true ){
+        Serial.println("-- currAngle after servoControl --");
+        Serial.println(currAngle);
+        Serial.println("-- u[1] after servoControl --");
+        Serial.println(u[1]);
+    }
     counter = 0;
     
     //Serial.println(holder);
