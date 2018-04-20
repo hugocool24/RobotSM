@@ -2,16 +2,16 @@
 float xgv;
 float ygv;
 float alpha;
-float k = 1.1;
+const float k = 1.1;
 float d;
 const float Pi = 3.141593;
-float L = 0.2; //car length
-float vmax = 5; //car max velocity
-float deltamax = 30; //max steering angle [deg]
+const float L = 0.2; //car length
+const float vmax = 5; //car max velocity
+const float deltamax = 30; //max steering angle [deg]
 float kappa;
 float u[] = {0.0,90.0};
-float amplitude = 0.5;
-float offset = 1.0;
+const float amplitude = 0.5;
+const float offset = 1.0;
 
 /*servo defines*/
 #include <Servo.h>
