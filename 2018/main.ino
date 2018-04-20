@@ -217,11 +217,11 @@ void getSensorValues(float avgSensorValue[], int readIndex[], float total[], flo
   for (int i = 0; i < nrOfFrontSensors; i += 1) { 
 
     if(rawData[i] > maxSensorVoltage) {
-      rawData[i] = minSensorDistance;  
+      sensorValue[i] = minSensorDistance;  
     }
        
     else if(rawData[i] < minSensorVoltage) {
-      rawData[i] = maxSensorDistance;  
+      sensorValue[i] = maxSensorDistance;  
     }
     
     else if (rawData[i]>1.5) {
