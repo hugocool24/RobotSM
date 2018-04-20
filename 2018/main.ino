@@ -1,3 +1,6 @@
+/*Debug Commands*/
+debugServoControl = true;
+
 /*controller defines*/
 float xgv;
 float ygv;
@@ -124,9 +127,20 @@ void controller(float u[], float d, float alpha, float L) {
 }
 
 int servoControl(float u[], int& currAngle) {
-
-   
+    
+    // debug
+    if (debugServoControl == true ){
+        Serial.println("-- u[1] from function input --");
+        Serial.println(u[1]);
+    }
+    
     reqAngle = (int) u[1]; //convert req. angle to integer
+    
+    // debug
+    if (debugServoControl == true ){
+        Serial.println("-- reqAngle int conversion from  --");
+        Serial.println(reqAngle);
+    }
     
     if(reqAngle > currAngle) 
     {
@@ -135,13 +149,37 @@ int servoControl(float u[], int& currAngle) {
       delay(5); //THESE DELAYS CAN PROBABLY BE LOWERED TO GET FASTER STEERING
       
       }
+      
+      // debug
+      if (debugServoControl == true ){
+          Serial.println("-- reqAngle > currAngle --");
+          Serial.println("-- pos after for loop  --");
+          Serial.println(pos);
+      }
+      
     } else if(reqAngle < currAngle) {
       for (pos = currAngle; pos >= reqAngle; pos -= 1) { 
       myservo.write(pos);              
       delay(5);
       }
+      
+      // debug
+      if (debugServoControl == true ){
+          Serial.println("-- reqAngle < currAngle --");
+          Serial.println("-- pos after for loop  --");
+          Serial.println(pos);
+      }
+      
     } else {
       myservo.write(reqAngle);
+      
+      // debug
+      if (debugServoControl == true ){
+          Serial.println("-- reqAngle = currAngle --");
+          Serial.println("-- reqAngle  --");
+          Serial.println(reqAngle);
+      }
+      
     }
     
     currAngle = reqAngle;
