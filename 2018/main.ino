@@ -1,3 +1,8 @@
+/*Startmodule*/
+const int killSwitchPin = 4;
+const int StartSignalPin = 2;
+int StartSig = 0;
+int KillSig = 1;
 /*controller defines*/
 float xgv;
 float ygv;
@@ -12,7 +17,8 @@ float kappa;
 float u[] = {0.0,90.0};
 const float amplitude = 0.5;
 const float offset = 1.0;
-
+const int minimumPWM = 100;
+const int maximumPWM = 150;
 /*servo defines*/
 #include <Servo.h>
 Servo myservo;
@@ -21,7 +27,7 @@ int currAngle = 90;
 int val;
 int pos;
 float holder;
-
+int goalAngle = 0;
 /*motor defines*/
 int pwm_pin = 3;  //PWM control for motor outputs 1 and 2 
 int dir_pin = 12;  //direction control for motor outputs 1 and 2 
@@ -74,7 +80,10 @@ void setup() {
   digitalWrite(dir_pin, HIGH);
   digitalWrite(9, LOW); //unlock brake
   analogWrite(pwm_pin, 0);
-
+  // Start module setup
+  pinMode(killSwitchPin, INPUT);
+  pinMode(StartSignalPin, INPUT);
+  
   // initialize moving average memory matrix
   for (int i = 0; i < nrOfFrontSensors; i++) {
     for (int thisReading = 0; thisReading < numReadings; thisReading++) {
@@ -123,27 +132,26 @@ void controller(float u[], float d, float alpha, float L) {
   
 }
 
-int servoControl(float u[], int& currAngle) {
+int servoControl(float u[], int currAngle) {
 
-   
+    int reqAngle;
     reqAngle = (int) u[1]; //convert req. angle to integer
-    
     if(reqAngle > currAngle) 
     {
       for (pos = currAngle; pos <= reqAngle; pos += 1) { 
       myservo.write(pos);              
-      delay(5); //THESE DELAYS CAN PROBABLY BE LOWERED TO GET FASTER STEERING
+      delay(2); //THESE DELAYS CAN PROBABLY BE LOWERED TO GET FASTER STEERING
       
       }
     } else if(reqAngle < currAngle) {
       for (pos = currAngle; pos >= reqAngle; pos -= 1) { 
       myservo.write(pos);              
-      delay(5);
+      delay(2);
       }
     } else {
       myservo.write(reqAngle);
     }
-    
+   
     currAngle = reqAngle;
     return currAngle;    
 }
@@ -161,7 +169,7 @@ void motorControl(float u[], int direction)
 
   //construct duty cycle, lowest PWM to get the motor rolling is approx. 150. Max duty cycle is 255. Currently restricted to 200
   int dCycle = (int) round(u[0]*255.0);
-  dCycle = map(dCycle,0,255,150,150);
+  dCycle = map(dCycle,0,255,minimumPWM,maximumPWM);
   
   //send duty cycle
   analogWrite(pwm_pin, dCycle);  
@@ -173,9 +181,6 @@ void getTargetPoint(float& d, float& alpha, float sensorValue[]) {
   //pick target point (if sensor with angle 0 has max distance, go straight else check for which sensor has max distance)
   //here we will maybe need to do something with the side sensors to try and stabilize the car trajectory to the center of the track
   //when we have no obstacles.
-
-   
-    
 
   float delta = 10.0;
   float epsilon = 10.0;
@@ -311,32 +316,36 @@ void sensorTest() {
 
 
 void loop() {
-
-  getSensorValues(avgSensorValue, readIndex, total, readings, numReadings);
-  delay(1); //this will give the sensors time to stabilize a new value. also defines numReadings+calctime ms loop
-  counter += 1;
+  StartSig = digitalRead(StartSignalPin);
+  KillSig = digitalRead(killSwitchPin);
+  //if (StartSig == 1 && KillSig == 1){
+    getSensorValues(avgSensorValue, readIndex, total, readings, numReadings);
+    delay(1); //this will give the sensors time to stabilize a new value. also defines numReadings+calctime ms loop
+    counter += 1;
   
-  if (counter == numReadings) {
-    //Serial.println("center");
-    //Serial.println(avgSensorValue[0]);
-    //Serial.println("right");
-    //Serial.println(avgSensorValue[1]);
-    //Serial.println("left");
-    //Serial.println(avgSensorValue[2]);
-    getTargetPoint(d,alpha,avgSensorValue);
-    //Serial.println("d");
-    //Serial.println(d);
-    //Serial.println("alpha");
-    //Serial.println(alpha);
-    //dFltrd = LPF(d, dFltrd, 0.1);
-    //alphaFltrd = LPF(alpha, alphaFltrd, 0.1);
-    controller(u,d,alpha,L);
-    motorControl(u,2);
-
-    servoControl(u,currAngle);
-    counter = 0;
-    
-    //Serial.println(holder);
-  }
-  //sensorTest();
+    if (counter == numReadings) {
+      //Serial.println("center");
+      //Serial.println(avgSensorValue[0]);
+      //Serial.println("right");
+      //Serial.println(avgSensorValue[1]);
+      //Serial.println("left");
+      //Serial.println(avgSensorValue[2]);
+      getTargetPoint(d,alpha,avgSensorValue);
+      //Serial.println("d");
+      //Serial.println(d);
+      //Serial.println("alpha");
+      //Serial.println(alpha);
+      //dFltrd = LPF(d, dFltrd, 0.1);
+      //alphaFltrd = LPF(alpha, alphaFltrd, 0.1);
+      controller(u,d,alpha,L);
+      motorControl(u,2);
+      //Serial.println("Innan");
+      Serial.println(u[1]);
+      currAngle = servoControl(u,currAngle);
+      counter = 0;
+      
+      //Serial.println(holder);
+    }
+    //sensorTest();
+ // }
 }
