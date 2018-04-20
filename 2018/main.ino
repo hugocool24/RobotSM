@@ -29,9 +29,9 @@ int dc;
 
 /*sensor defines*/
 const int nrOfFrontSensors = 3; //nr of sensors to use in the controller ADJUST AS FOR HOW MANY SENSORS CURRENTLY CONNECTED
-int sensorPin[] = {2,7,8}; //array of input pins ADJUST FOR CURRENTLY CONNECTED SENSORS
+const int sensorPin[] = {2,7,8}; //array of input pins ADJUST FOR CURRENTLY CONNECTED SENSORS
 float rawData[nrOfFrontSensors]; //array to store value coming from sensor
-int sensorAngle[] = {0,-45,45}; //MAKE SURE THE CONNECTED PIN INDEX MATCHES SENSOR ANGLES DEFINED HERE. Angles must be Integers
+const int sensorAngle[] = {0,-45,45}; //MAKE SURE THE CONNECTED PIN INDEX MATCHES SENSOR ANGLES DEFINED HERE. Angles must be Integers
 const int midSensorIndex = 0;
 float sensorValue[nrOfFrontSensors] = {0,0,0};  //array to store shifted and inverted value for sensor
 float offsetValue[nrOfFrontSensors] = {0,0,0}; //array to store offset value for each sensor
